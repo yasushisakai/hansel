@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
 import android.util.Log;
-import android.widget.Toast;
 
 public class GeolocationReceiver extends BroadcastReceiver{
     private static final String TAG = GeolocationReceiver.class.getSimpleName();

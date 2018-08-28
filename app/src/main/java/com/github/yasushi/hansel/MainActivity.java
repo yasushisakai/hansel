@@ -9,6 +9,7 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.IBinder;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -29,6 +30,7 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 11;
+    private static final int REQUEST_VIDEO_CAPTURE = 1;
 
     private boolean isBound = false;
     private GeolocationService service;
@@ -37,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView uuidTextView;
     private Button recordingButton;
+    private Button recordVideoButton;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -58,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
     /*
     Life cycle stuff
      */
-
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -70,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
 
         recordingButton = findViewById(R.id.startPauseButton);
         uuidTextView = findViewById(R.id.uuidTextView);
+        recordVideoButton = findViewById(R.id.recordVideoButton);
 
         uuidTextView.setText(Utilities.getUUID(this));
 
@@ -107,6 +110,13 @@ public class MainActivity extends AppCompatActivity {
                 }
 
                 changeButtonState(isRequesting);
+            }
+        });
+
+        recordVideoButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v){
+                dispatchTakeVideoIntent();
             }
         });
 
@@ -202,10 +212,29 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent){
+        if (requestCode == REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
+            Uri videoUri = intent.getData(); // location
+            Snackbar.make(
+                    findViewById(R.id.activity_main),
+                    videoUri.toString(),
+                    Snackbar.LENGTH_LONG
+                ).show();
+            Firebase.uploadVideo(videoUri, findViewById(R.id.activity_main));
+        }
+    }
+
     private void changeButtonState(boolean isRequesting){
        String buttonText = !isRequesting ? getString(R.string.start_recording_button_text) : getString(R.string.stop_recording_button_text);
 
        recordingButton.setText(buttonText);
 
+    }
+    private void dispatchTakeVideoIntent() {
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takeVideoIntent, REQUEST_VIDEO_CAPTURE);
+        }
     }
 }
