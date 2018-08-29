@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Log.d(TAG, "onCreate");
+        Log.v(TAG, "onCreate");
 
         receiver = new GeolocationReceiver();
         setContentView(R.layout.activity_main);
@@ -221,6 +221,8 @@ public class MainActivity extends AppCompatActivity {
                     videoUri.toString(),
                     Snackbar.LENGTH_LONG
                 ).show();
+            Log.d(TAG, "video captured, trying to upload");
+            service.getLastLocation();
             Firebase.uploadVideo(videoUri, findViewById(R.id.activity_main));
         }
     }

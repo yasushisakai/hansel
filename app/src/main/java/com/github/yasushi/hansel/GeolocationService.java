@@ -32,10 +32,10 @@ public class GeolocationService extends Service{
     private static final String PACKAGE_NAME = "com.github.yasushi.hansel";
 
     // private static final long LOCATION_INTERVAL = 60 * 60 * 1000;
-    private static final long LOCATION_INTERVAL = 60 * 60 * 1000; // only responsible for every 30 min
+    private static final long LOCATION_INTERVAL = 60 * 1000; // only responsible for every 30 min
 
     // private static final long LOCATION_FASTEST_INTERVAL = 30 * 60 * 1000;
-    private static final long LOCATION_FASTEST_INTERVAL = 5 * 60 * 1000; // fastest one min
+    private static final long LOCATION_FASTEST_INTERVAL = 30 * 1000; // fastest 30 sec
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
     public static final String EXTRA_LOCATION = "location";
     public static final String EXTRA_FROM_NOTIFICATION = "from_notification";
@@ -153,7 +153,7 @@ public class GeolocationService extends Service{
         super.onDestroy();
     }
 
-    private void getLastLocation() {
+    public void getLastLocation() {
         try {
             locClient.getLastLocation()
                     .addOnCompleteListener(new OnCompleteListener<Location>() {
