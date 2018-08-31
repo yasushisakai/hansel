@@ -25,15 +25,17 @@ import android.widget.TextView;
 
 import org.w3c.dom.Text;
 
-import java.util.UUID;
+import java.time.Instant;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 11;
     private static final int REQUEST_VIDEO_CAPTURE = 1;
 
+    private String uuid;
     private boolean isBound = false;
     private GeolocationService service;
+    private Trip cTrip;
 
     private GeolocationReceiver receiver;
 
@@ -56,8 +58,6 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-
-
     /*
     Life cycle stuff
      */
@@ -74,9 +74,11 @@ public class MainActivity extends AppCompatActivity {
         uuidTextView = findViewById(R.id.uuidTextView);
         recordVideoButton = findViewById(R.id.recordVideoButton);
 
-        uuidTextView.setText(Utilities.getUUID(this));
 
-        // weird situation, requesting is true, but has not permission (user took put it off)
+        this.uuid = Utilities.getUUID(this);
+        uuidTextView.setText(uuid);
+
+        // weird situation, requesting is true, but has not permission (user took it off)
         boolean isRequesting = Utilities.requestingLocationUpdates(this);
 
         if(isRequesting) {
@@ -223,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
                 ).show();
             Log.d(TAG, "video captured, trying to upload");
             service.getLastLocation();
-            Firebase.uploadVideo(videoUri, findViewById(R.id.activity_main));
+            Firebase.uploadVideo(videoUri, this.cTrip, findViewById(R.id.activity_main));
         }
     }
 
@@ -234,6 +236,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
     private void dispatchTakeVideoIntent() {
+        this.cTrip = new Trip(this.uuid);
         Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
         if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(takeVideoIntent, REQUEST_VIDEO_CAPTURE);
