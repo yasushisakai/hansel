@@ -1,12 +1,16 @@
 package com.github.yasushi.hansel;
 
 import android.Manifest;
+import android.arch.persistence.room.Database;
+import android.arch.persistence.room.Room;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.IBinder;
 import android.provider.MediaStore;
@@ -23,10 +27,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
-import org.w3c.dom.Text;
-
-import java.time.Instant;
-
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 11;
@@ -37,7 +37,8 @@ public class MainActivity extends AppCompatActivity {
     private GeolocationService service;
     private Trip cTrip;
 
-    private GeolocationReceiver receiver;
+    private GeolocationReceiver geolocationReceiver;
+    private NetworkConnectionReceiver networkReceiver;
 
     private TextView uuidTextView;
     private Button recordingButton;
@@ -58,6 +59,20 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private final BroadcastReceiver localReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "local Receiver, on Receive");
+            boolean isConnected = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_CONNECTED(), false);
+
+            if (isConnected) {
+                Snackbar.make(findViewById(R.id.activity_main), "it's connected", Snackbar.LENGTH_LONG).show();
+            } else {
+                Snackbar.make(findViewById(R.id.activity_main), "it's disconnected", Snackbar.LENGTH_LONG).show();
+            }
+        }
+    };
+
     /*
     Life cycle stuff
      */
@@ -65,18 +80,20 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Log.v(TAG, "onCreate");
+        Log.d(TAG, "onCreate");
 
-        receiver = new GeolocationReceiver();
+        geolocationReceiver = new GeolocationReceiver();
+        networkReceiver = new NetworkConnectionReceiver();
         setContentView(R.layout.activity_main);
 
         recordingButton = findViewById(R.id.startPauseButton);
         uuidTextView = findViewById(R.id.uuidTextView);
         recordVideoButton = findViewById(R.id.recordVideoButton);
 
-
         this.uuid = Utilities.getUUID(this);
         uuidTextView.setText(uuid);
+
+        // TripDatabase db = Room.databaseBuilder(this, TripDatabase.class, "tripDatabase").build();
 
         // weird situation, requesting is true, but has not permission (user took it off)
         boolean isRequesting = Utilities.requestingLocationUpdates(this);
@@ -130,14 +147,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
-        LocalBroadcastManager.getInstance(this).registerReceiver(receiver,
+        LocalBroadcastManager.getInstance(this).registerReceiver(geolocationReceiver,
                 new IntentFilter(GeolocationService.ACTION_BROADCAST));
+        registerReceiver(networkReceiver, new IntentFilter("android.net.conn.CONNECTIVITY_CHANGE"));
+        LocalBroadcastManager.getInstance(this).registerReceiver(localReceiver,
+                new IntentFilter(NetworkConnectionReceiver.getNOTIFY_NETWORK_CHANGE()));
     }
 
     @Override
     protected void onPause() {
         Log.d(TAG, "onPause");
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(localReceiver);
+        unregisterReceiver(networkReceiver);
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(geolocationReceiver);
         super.onPause();
     }
 
@@ -178,15 +200,15 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        Log.i(TAG, "onRequestPermissionResult");
+        Log.d(TAG, "onRequestPermissionResult");
         if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
             if (grantResults.length <= 0) {
                 // If user interaction was interrupted, the permission request is cancelled and you
                 // receive empty arrays.
-                Log.i(TAG, "User interaction was cancelled.");
+                Log.d(TAG, "User interaction was cancelled.");
             } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission was granted.
-                Log.i(TAG, "user granted Permission");
+                Log.d(TAG, "user granted Permission");
                 service.requestLocationUpdates();
             } else {
                 // Permission denied.
@@ -224,19 +246,24 @@ public class MainActivity extends AppCompatActivity {
                     Snackbar.LENGTH_LONG
                 ).show();
             Log.d(TAG, "video captured, trying to upload");
-            service.getLastLocation();
+            service.changeFrequency(GeolocationService.LOCATION_INTERVALS.SLOW);
+
             Firebase.uploadVideo(videoUri, this.cTrip, findViewById(R.id.activity_main));
         }
     }
 
     private void changeButtonState(boolean isRequesting){
        String buttonText = !isRequesting ? getString(R.string.start_recording_button_text) : getString(R.string.stop_recording_button_text);
-
        recordingButton.setText(buttonText);
-
     }
     private void dispatchTakeVideoIntent() {
+
+        // change geolocation frequency to fast
+        service.changeFrequency(GeolocationService.LOCATION_INTERVALS.FAST);
+
+        // start new trip
         this.cTrip = new Trip(this.uuid);
+
         Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
         if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
             startActivityForResult(takeVideoIntent, REQUEST_VIDEO_CAPTURE);

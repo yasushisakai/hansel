@@ -34,6 +34,20 @@ public class GeolocationService extends Service{
     // private static final long LOCATION_INTERVAL = 60 * 60 * 1000;
     private static final long LOCATION_INTERVAL = 60 * 1000; // only responsible for every 30 min
 
+    public enum LOCATION_INTERVALS {
+        SLOW (60000), FAST(10000), FASTEST(5000);
+
+        private long speed;
+
+        private long getSpeed() {
+            return this.speed;
+        }
+
+        LOCATION_INTERVALS(long speed){
+            this.speed = speed;
+        }
+    }
+
     // private static final long LOCATION_FASTEST_INTERVAL = 30 * 60 * 1000;
     private static final long LOCATION_FASTEST_INTERVAL = 30 * 1000; // fastest 30 sec
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
@@ -57,6 +71,7 @@ public class GeolocationService extends Service{
 
     @Override
     public void onCreate() {
+        Log.d(TAG, "onCreate");
 
         locClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -68,12 +83,12 @@ public class GeolocationService extends Service{
                 for(Location location: locationResult.getLocations()) {
 
                     // if(lastLocation == null || lastLocation.distanceTo(location) > MINIMUM_DISTANCE_METERS) {
-                        if(location != null) {
-                            lastLocation = location;
-                            Log.d(TAG, Utilities.formattedGeolocation(lastLocation));
-                            Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
-                        }
-                        // return;
+                    if(location != null) {
+                        lastLocation = location;
+                        Log.d(TAG, Utilities.formattedGeolocation(lastLocation));
+                        Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
+                    }
+                    // return;
                     // }
 
                 }
@@ -103,7 +118,7 @@ public class GeolocationService extends Service{
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // return super.onStartCommand(intent, flags, startId);
-        Log.i(TAG, "Service started");
+        Log.d(TAG, "onStartCommand");
         boolean startedFromNotification = intent.getBooleanExtra(EXTRA_FROM_NOTIFICATION, false);
 
         if(startedFromNotification) {
@@ -117,7 +132,7 @@ public class GeolocationService extends Service{
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.i(TAG, "onBind");
+        Log.d(TAG, "onBind");
 
         // stops being a foreground service because it's bound to the activity
         stopForeground(true);
@@ -128,7 +143,7 @@ public class GeolocationService extends Service{
 
     @Override
     public void onRebind(Intent intent) {
-        Log.i(TAG, "onRebind");
+        Log.d(TAG, "onRebind");
         stopForeground(true);
 
         super.onRebind(intent);
@@ -137,15 +152,13 @@ public class GeolocationService extends Service{
     @Override
     public boolean onUnbind(Intent intent) {
         if(Utilities.requestingLocationUpdates(this)) {
-
             if(Build.VERSION.SDK_INT == Build.VERSION_CODES.O) {
                 startForegroundService(new Intent(this, GeolocationService.class));
-
             } else {
                 startForeground(NOTIFICATION_ID, getNotification());
             }
         }
-            return true;
+        return true;
     }
 
     @Override
@@ -165,7 +178,7 @@ public class GeolocationService extends Service{
                                 Log.d(TAG, "got location " + Utilities.formattedGeolocation(lastLocation));
                                 Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
                             } else {
-                                Log.w(TAG, "location was null, failed to get last location");
+                                Log.d(TAG, "location was null, failed to get last location");
                             }
                         }
                     });
@@ -176,16 +189,32 @@ public class GeolocationService extends Service{
 
     private void createLocationRequest(){
         locRequest = new LocationRequest();
-        locRequest.setInterval(LOCATION_INTERVAL);
-        locRequest.setFastestInterval(LOCATION_FASTEST_INTERVAL);
+        locRequest.setInterval(LOCATION_INTERVALS.SLOW.getSpeed());
+        locRequest.setFastestInterval(LOCATION_INTERVALS.FASTEST.getSpeed());
         locRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+    }
+
+    public void changeFrequency(LOCATION_INTERVALS interval) {
+        if (locRequest.getInterval() != interval.getSpeed()) {
+            Log.d(TAG, "interval change to: " + interval.name());
+            locRequest.setInterval(interval.getSpeed());
+            // reset location updates
+            Utilities.setRequestingLocationUpdates(this, false);
+            locClient.removeLocationUpdates(locCallback);
+            try {
+                locClient.requestLocationUpdates(locRequest, locCallback, Looper.myLooper());
+                Utilities.setRequestingLocationUpdates(this, true);
+            } catch (SecurityException e) {
+                Log.e(TAG, "Error while changing the frequency: Location Permission lost." + e);
+            }
+        }
     }
 
     /*
     requestLocationUpdates are called from the MainActivities
      */
     public void requestLocationUpdates(){
-        Log.i(TAG, "requesting location updates");
+        Log.d(TAG, "requesting location updates");
         Utilities.setRequestingLocationUpdates(this, true);
         startService(new Intent(getApplicationContext(), GeolocationService.class));
         try{
@@ -197,7 +226,7 @@ public class GeolocationService extends Service{
     }
 
     public void removeLocationUpdates(){
-        Log.i(TAG, "removing location updates");
+        Log.d(TAG, "removing location updates");
         try{
             locClient.removeLocationUpdates(locCallback);
             Utilities.setRequestingLocationUpdates(this, false);

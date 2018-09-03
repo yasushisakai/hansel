@@ -38,7 +38,7 @@ public class Firebase {
 
     public static void uploadVideo(Uri uri, final Trip trip, final View v){
        StorageReference r = storageRef.child("clips/" + trip.getId());
-       trip.setClipLocalFileName(uri.getLastPathSegment());
+       trip.setClipUri(uri);
        UploadTask task = r.putFile(uri);
 
        task.addOnFailureListener(new OnFailureListener() {
