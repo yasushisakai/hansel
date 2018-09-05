@@ -4,6 +4,7 @@ import android.location.Location;
 import android.net.Uri;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
+import android.util.Log;
 import android.view.View;
 
 import com.google.android.gms.tasks.OnFailureListener;
@@ -18,6 +19,8 @@ import com.google.firebase.storage.UploadTask;
 import java.util.Map;
 
 public class Firebase {
+
+    private static String TAG = Firebase.class.getSimpleName();
     private static FirebaseDatabase db = FirebaseDatabase.getInstance();
     private static DatabaseReference ref = db.getReference();
     private static FirebaseStorage storage = FirebaseStorage.getInstance();
@@ -36,23 +39,36 @@ public class Firebase {
         ref.child("trips").child(uuid).child(tripId).setValue(trip);
     }
 
-    public static void uploadVideo(Uri uri, final Trip trip, final View v){
-       StorageReference r = storageRef.child("clips/" + trip.getId());
-       trip.setClipUri(uri);
+
+    class TripDeleter implements Runnable{
+
+        private TripDatabase database;
+        private Trip trip;
+
+        TripDeleter(TripDatabase db, Trip t) {
+           database = db;
+           trip = t;
+        }
+
+        @Override
+        public void run() {
+            database.tripDao().delete(trip.getId());
+        }
+    }
+
+    // this uploads the video, and in success, adds a record to firebase
+    public static UploadTask uploadClip(String name, Uri uri){
+       StorageReference r = storageRef.child("clips/" + name);
        UploadTask task = r.putFile(uri);
 
        task.addOnFailureListener(new OnFailureListener() {
            @Override
            public void onFailure(@NonNull Exception e) {
-               Snackbar.make(v, "Failed to upload clip: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
-           }
-       }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-           @Override
-           public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-               trip.addRecord();
-               Snackbar.make(v, "Successfully uploaded clip", Snackbar.LENGTH_LONG).show();
+               Log.e(TAG,"Failed to upload clip: " + e.getMessage());
            }
        });
+
+       return task;
     }
 
     @IgnoreExtraProperties

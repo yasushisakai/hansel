@@ -27,10 +27,14 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 11;
     private static final int REQUEST_VIDEO_CAPTURE = 1;
+
+    private TripDatabase db;
 
     private String uuid;
     private boolean isBound = false;
@@ -59,16 +63,43 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    class Upload implements Runnable {
+        @Override
+        public void run() {
+            // get the list of trips
+            List<Trip> trips = db.tripDao().selectAll();
+
+            for(Trip t : trips) {
+                t.upload(db);
+            }
+        }
+    }
+
+    class TripInserter implements Runnable {
+
+        private Trip trip;
+
+        TripInserter(Trip t) {
+            trip = t;
+        }
+
+        @Override
+        public void run() {
+           db.tripDao().insert(trip);
+        }
+    }
+
     private final BroadcastReceiver localReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "local Receiver, on Receive");
-            boolean isConnected = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_CONNECTED(), false);
+            boolean hasWifi = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_WIFI(), false);
 
-            if (isConnected) {
-                Snackbar.make(findViewById(R.id.activity_main), "it's connected", Snackbar.LENGTH_LONG).show();
+            if (hasWifi) {
+                // run in a different thread
+                new Thread(new Upload()).start();
             } else {
-                Snackbar.make(findViewById(R.id.activity_main), "it's disconnected", Snackbar.LENGTH_LONG).show();
+                Log.d(TAG, "no wifi");
             }
         }
     };
@@ -93,7 +124,7 @@ public class MainActivity extends AppCompatActivity {
         this.uuid = Utilities.getUUID(this);
         uuidTextView.setText(uuid);
 
-        // TripDatabase db = Room.databaseBuilder(this, TripDatabase.class, "tripDatabase").build();
+        db = Room.databaseBuilder(this, TripDatabase.class, "tripDatabase").build();
 
         // weird situation, requesting is true, but has not permission (user took it off)
         boolean isRequesting = Utilities.requestingLocationUpdates(this);
@@ -187,7 +218,6 @@ public class MainActivity extends AppCompatActivity {
                                 ActivityCompat.requestPermissions(MainActivity.this,
                                         new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                                         REQUEST_PERMISSIONS_REQUEST_CODE);
-
                             }
                         }).show();
         } else {
@@ -247,8 +277,10 @@ public class MainActivity extends AppCompatActivity {
                 ).show();
             Log.d(TAG, "video captured, trying to upload");
             service.changeFrequency(GeolocationService.LOCATION_INTERVALS.SLOW);
+            this.cTrip.setClipUri(videoUri);
+            this.cTrip.stop();
 
-            Firebase.uploadVideo(videoUri, this.cTrip, findViewById(R.id.activity_main));
+            new Thread(new TripInserter(this.cTrip)).start();
         }
     }
 

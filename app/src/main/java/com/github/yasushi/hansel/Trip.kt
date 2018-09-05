@@ -5,17 +5,22 @@ import android.arch.persistence.room.Ignore
 import android.arch.persistence.room.PrimaryKey
 import android.os.SystemClock
 import android.net.Uri
+import android.util.Log
+import android.view.View
+import com.google.android.gms.tasks.OnSuccessListener
+import com.google.firebase.storage.UploadTask
 import org.jetbrains.annotations.NotNull
 import java.util.*
+import kotlin.concurrent.thread
 
 @Entity
 class Trip (id: String?, userId: String?, clipUri: Uri?, start: Long?, duration: Long?) {
     @PrimaryKey
     @NotNull
-    var id = id ?: Firebase.getNewTripId(userId)
-    var userId = userId
-    var clipUri = clipUri
-    var start = start ?: System.currentTimeMillis()
+    var id: String = id ?: Firebase.getNewTripId(userId)
+    var userId: String? = userId
+    var clipUri: Uri? = clipUri
+    var start: Long = start ?: System.currentTimeMillis()
 
     // don't use currentTimeMillis for both start and end when delta is important
     @Ignore
@@ -37,13 +42,26 @@ class Trip (id: String?, userId: String?, clipUri: Uri?, start: Long?, duration:
         return trip
     }
 
-    private fun stop () {
+    fun stop () {
         this.duration = SystemClock.elapsedRealtime() - this.startElapsed
     }
 
     fun addRecord(){
-        this.stop()
         Firebase.addTrip(this.userId, this.id, this.toMap())
+    }
+
+    fun upload(db: TripDatabase) {
+        Firebase.uploadClip(this.id, this.clipUri).addOnSuccessListener {
+            this.addRecord()
+            thread {
+                // deletes clip from local list
+                db.tripDao().delete(this.id)
+            }
+
+            Log.d("Trip:upload", "uploaded clip: "+ this.id);
+
+        }
+
     }
 
 }
