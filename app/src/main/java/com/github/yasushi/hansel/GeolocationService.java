@@ -152,11 +152,11 @@ public class GeolocationService extends Service{
     @Override
     public boolean onUnbind(Intent intent) {
         if(Utilities.requestingLocationUpdates(this)) {
-            if(Build.VERSION.SDK_INT == Build.VERSION_CODES.O) {
-                startForegroundService(new Intent(this, GeolocationService.class));
-            } else {
+        //    if(Build.VERSION.SDK_INT == Build.VERSION_CODES.O) {
+        //        startForegroundService(new Intent(this, GeolocationService.class));
+        //    } else {
                 startForeground(NOTIFICATION_ID, getNotification());
-            }
+        //    }
         }
         return true;
     }
@@ -216,7 +216,11 @@ public class GeolocationService extends Service{
     public void requestLocationUpdates(){
         Log.d(TAG, "requesting location updates");
         Utilities.setRequestingLocationUpdates(this, true);
-        startService(new Intent(getApplicationContext(), GeolocationService.class));
+//        if(Build.VERSION.SDK_INT == Build.VERSION_CODES.O) {  // SDK branch should be here, but not work...
+//            startForegroundService(new Intent(this, GeolocationService.class));
+//        } else {
+            startService(new Intent(this, GeolocationService.class));  // TODO: Check this or getApplicationContext()
+//        }
         try{
             locClient.requestLocationUpdates(locRequest, locCallback, Looper.myLooper());
         } catch (SecurityException e){
