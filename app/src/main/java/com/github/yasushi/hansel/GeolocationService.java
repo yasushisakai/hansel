@@ -17,6 +17,7 @@ import android.speech.tts.UtteranceProgressListener;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.util.SimpleArrayMap;
 import android.util.Log;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
@@ -26,6 +27,10 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+
+import java.util.ArrayList;
+
+import io.reactivex.internal.operators.flowable.FlowableAny;
 
 public class GeolocationService extends Service{
     private static final String TAG = GeolocationService.class.getSimpleName();
@@ -69,6 +74,9 @@ public class GeolocationService extends Service{
     private NotificationManager notificationManager;
     private Notification notification;
 
+    public boolean isOnline = true;
+    private ArrayList<Location> breadcrumbs_keep = new ArrayList<>();
+
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate");
@@ -86,7 +94,13 @@ public class GeolocationService extends Service{
                     if(location != null) {
                         lastLocation = location;
                         Log.d(TAG, Utilities.formattedGeolocation(lastLocation));
-                        Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
+                        if (isOnline) {
+                            Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
+                            Log.d(TAG, "I'm online");
+                        } else {
+                            breadcrumbs_keep.add(lastLocation);
+                            Log.d(TAG, "I'm offline");
+                        }
                     }
                     // return;
                     // }
@@ -176,7 +190,11 @@ public class GeolocationService extends Service{
                                 // Location location = task.getResult();
                                 lastLocation = task.getResult();
                                 Log.d(TAG, "got location " + Utilities.formattedGeolocation(lastLocation));
-                                Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
+                                if (isOnline) {
+                                    Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
+                                } else {
+                                    breadcrumbs_keep.add(lastLocation);
+                                }
                             } else {
                                 Log.d(TAG, "location was null, failed to get last location");
                             }
@@ -279,5 +297,18 @@ public class GeolocationService extends Service{
 
     }
 
+    public void SwitchingOnline(boolean online){
+        this.isOnline = online;
+        if(this.isOnline) {
+            for (int i=0; i<breadcrumbs_keep.size(); i++) {
+                Location tmpLocation = breadcrumbs_keep.get(i);
+                Log.d(TAG, "got location during offline " + Utilities.formattedGeolocation(tmpLocation));
+                Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), tmpLocation);
+            }
+            breadcrumbs_keep.clear();
+        } else {
+            Log.d(TAG, "goes to offline");
+        }
+    }
 
 }
