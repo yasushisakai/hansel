@@ -101,6 +101,9 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Log.d(TAG, "no wifi");
             }
+
+            boolean isOnline = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_CONNECTED(), false);
+            service.SwitchingOnline(isOnline);
         }
     };
 
