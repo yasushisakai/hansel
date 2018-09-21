@@ -263,7 +263,13 @@ public class GeolocationService extends Service{
     public Notification getNotification() {
 
         Intent intent = new Intent(this, GeolocationService.class);
-        String text = Utilities.formattedGeolocation(lastLocation);
+
+        String text;
+        if (lastLocation != null ) {
+            text = Utilities.formattedGeolocation(lastLocation);
+        } else {
+           text = "no location data yet";
+        }
 
         intent.putExtra(EXTRA_FROM_NOTIFICATION, true);
 
@@ -277,7 +283,8 @@ public class GeolocationService extends Service{
                 .addAction(R.drawable.ic_launch, "launch app", activityPendingIntent)
                 .addAction(R.drawable.ic_cancel, "stop breadcrumbing", servicePendingIntent)
                 .setContentText(text)
-                .setContentTitle(Utilities.fomattedtime(lastLocation.getTime()))
+                .setContentTitle("hansel")
+                // .setContentTitle(Utilities.fomattedtime(lastLocation.getTime()))
                 .setOngoing(true) //?
                 .setTicker(text)
                 .setWhen(System.currentTimeMillis())

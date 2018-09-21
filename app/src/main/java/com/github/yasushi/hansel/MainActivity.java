@@ -137,7 +137,11 @@ public class MainActivity extends AppCompatActivity {
                 requestPermissions();
             }
         }
+
+        // TODO: is this redundant to change button state in onResume as well?
+        // this comes from the fact that when it requests permission, it comes back via onResume
         changeButtonState(isRequesting);
+
     }
 
     @Override
@@ -154,15 +158,16 @@ public class MainActivity extends AppCompatActivity {
                 // toggles the requestLocationUpdates
                 if(isRequesting) {
                     service.removeLocationUpdates();
+                    changeButtonState(false);
                 }else{
                     if(!Utilities.checkPermissions(MainActivity.this)){
                         requestPermissions();
                     } else {
                         service.requestLocationUpdates();
+                        changeButtonState(true);
                     }
                 }
 
-                changeButtonState(isRequesting);
             }
         });
 
@@ -181,6 +186,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         Log.d(TAG, "onResume");
+
+        boolean isRequesting = Utilities.requestingLocationUpdates(MainActivity.this);
+        changeButtonState(isRequesting);
+
         LocalBroadcastManager.getInstance(this).registerReceiver(geolocationReceiver,
                 new IntentFilter(GeolocationService.ACTION_BROADCAST));
         registerReceiver(networkReceiver, new IntentFilter("android.net.conn.CONNECTIVITY_CHANGE"));
