@@ -1,4 +1,4 @@
-![](hansel.jpg)
+![](hansel.gif)
 
 
 in order to test, you will need your own google-service.json file under app/ folder
