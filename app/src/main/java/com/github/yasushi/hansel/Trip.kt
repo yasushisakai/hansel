@@ -51,7 +51,7 @@ class Trip (id: String?, userId: String?, clipUri: Uri?, start: Long?, duration:
     }
 
     fun upload(db: TripDatabase) {
-        Firebase.uploadClip(this.id, this.clipUri).addOnSuccessListener {
+//        Firebase.uploadClip(this.id, this.clipUri).addOnSuccessListener {
             this.addRecord()
             thread {
                 // deletes clip from local list
@@ -60,7 +60,7 @@ class Trip (id: String?, userId: String?, clipUri: Uri?, start: Long?, duration:
 
             Log.d("Trip:upload", "uploaded clip: "+ this.id);
 
-        }
+//        }
 
     }
 
