@@ -5,13 +5,17 @@ import android.arch.persistence.room.Database;
 import android.arch.persistence.room.Room;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.IBinder;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -19,6 +23,8 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -27,6 +33,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -47,6 +54,12 @@ public class MainActivity extends AppCompatActivity {
     private TextView uuidTextView;
     private Button recordingButton;
     private Button recordVideoButton;
+
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -136,6 +149,16 @@ public class MainActivity extends AppCompatActivity {
             if (!Utilities.checkPermissions(this)) {
                 requestPermissions();
             }
+        }
+
+        int permission = ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    this,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
         }
 
         // TODO: is this redundant to change button state in onResume as well?
@@ -280,19 +303,67 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent){
-        if (requestCode == REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
-            Uri videoUri = intent.getData(); // location
-            Snackbar.make(
+        if (requestCode == REQUEST_VIDEO_CAPTURE){
+            service.changeFrequency(GeolocationService.LOCATION_INTERVALS.SLOW);
+            if(resultCode == RESULT_OK) {
+                Uri videoUri = intent.getData(); // location
+                if (videoUri.getScheme().compareTo("content")==0) {
+                    Cursor cursor = getContentResolver().query(videoUri, null, null, null, null);
+                    if (cursor.moveToFirst()) {
+                        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);//Instead of "MediaStore.Images.Media.DATA" can be used "_data"
+                        Uri filePathUri = Uri.parse(cursor.getString(column_index));
+                        //String file_name = filePathUri.getLastPathSegment();//.toString();
+                        String org_file_path = filePathUri.getPath();
+                        File fl = new File(org_file_path);
+                        if (fl.exists()) {
+                            File cameraFolder = new File(
+                                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Camera");
+                            File uidFolder = new File(cameraFolder.getPath() + "/" + this.cTrip.getUserId());
+                            if(!uidFolder.exists()){
+                                uidFolder.mkdir();
+                            }
+                            String new_file_path = uidFolder.getPath() + "/" + this.cTrip.getId() + ".mp4";
+                            Log.d(TAG, "original video path: " + org_file_path + " tid:" + this.cTrip.getId());
+                            File rfl = new File(new_file_path);
+                            if (fl.renameTo(rfl)) {
+                                Log.d(TAG, "video name was changed." + cameraFolder.getPath());
+                                // Remove from album db
+                                MainActivity.this.getContentResolver().delete(
+                                        MediaStore.Files.getContentUri("external"),
+                                        MediaStore.Files.FileColumns.DATA + "=?",
+                                        new String[]{org_file_path}
+                                );
+                                // Add to video album db
+                                ContentValues contentValues = new ContentValues();
+                                ContentResolver contentResolver = MainActivity.this.getContentResolver();
+                                contentValues.put(MediaStore.Video.Media.MIME_TYPE, "video/mp4");
+                                contentValues.put("_data", new_file_path);
+                                contentResolver.insert(
+                                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI, contentValues);
+                            } else {
+                                Log.d(TAG, "video name was not changed." + cameraFolder.getPath());
+                            }
+                            Uri tidUri = FileProvider.getUriForFile(MainActivity.this, BuildConfig.APPLICATION_ID + ".fileprovider", rfl);
+                            Snackbar.make(
+                                    findViewById(R.id.activity_main),
+                                    tidUri.toString(),
+                                    Snackbar.LENGTH_LONG
+                            ).show();
+                            Log.d(TAG, "new video uri path: " + tidUri.toString());
+                            Log.d(TAG, "video captured, trying to upload");
+                            this.cTrip.setClipUri(tidUri);
+                            this.cTrip.stop();
+
+                            new Thread(new TripInserter(this.cTrip)).start();
+                        }
+                    }
+                }
+            }
+/*            Snackbar.make(
                     findViewById(R.id.activity_main),
                     videoUri.toString(),
                     Snackbar.LENGTH_LONG
-                ).show();
-            Log.d(TAG, "video captured, trying to upload");
-            service.changeFrequency(GeolocationService.LOCATION_INTERVALS.SLOW);
-            this.cTrip.setClipUri(videoUri);
-            this.cTrip.stop();
-
-            new Thread(new TripInserter(this.cTrip)).start();
+                ).show();*/
         }
     }
 
