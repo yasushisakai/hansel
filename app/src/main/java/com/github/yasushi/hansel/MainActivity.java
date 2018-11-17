@@ -317,10 +317,10 @@ public class MainActivity extends AppCompatActivity {
                         File fl = new File(org_file_path);
                         if (fl.exists()) {
                             File cameraFolder = new File(
-                                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Camera");
+                                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Hansel");
                             File uidFolder = new File(cameraFolder.getPath() + "/" + this.cTrip.getUserId());
                             if(!uidFolder.exists()){
-                                uidFolder.mkdir();
+                                uidFolder.mkdirs();
                             }
                             String new_file_path = uidFolder.getPath() + "/" + this.cTrip.getId() + ".mp4";
                             Log.d(TAG, "original video path: " + org_file_path + " tid:" + this.cTrip.getId());
@@ -370,6 +370,8 @@ public class MainActivity extends AppCompatActivity {
     private void changeButtonState(boolean isRequesting){
        String buttonText = !isRequesting ? getString(R.string.start_recording_button_text) : getString(R.string.stop_recording_button_text);
        recordingButton.setText(buttonText);
+
+        recordVideoButton.setEnabled(isRequesting);
     }
     private void dispatchTakeVideoIntent() {
 
