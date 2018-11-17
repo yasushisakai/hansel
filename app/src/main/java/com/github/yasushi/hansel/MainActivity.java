@@ -1,7 +1,6 @@
 package com.github.yasushi.hansel;
 
 import android.Manifest;
-import android.arch.persistence.room.Database;
 import android.arch.persistence.room.Room;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -13,7 +12,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
-import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Environment;
 import android.os.IBinder;
@@ -41,7 +39,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 11;
     private static final int REQUEST_VIDEO_CAPTURE = 1;
 
-    private TripDatabase db;
+    private TripDatabase tripDB;
+    private BreadcrumbDatabase breadDB;
 
     private String uuid;
     private boolean isBound = false;
@@ -80,10 +79,15 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             // get the list of trips
-            List<Trip> trips = db.tripDao().selectAll();
+            List<Trip> trips = tripDB.tripDao().selectAll();
+            List<Breadcrumb> breadcrumbs = breadDB.breadcrumbDao().selectAll();
 
             for(Trip t : trips) {
-                t.upload(db);
+                t.upload(tripDB);
+            }
+
+            for(Breadcrumb b : breadcrumbs) {
+                b.uploadAndClear(breadDB);
             }
         }
     }
@@ -98,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void run() {
-           db.tripDao().insert(trip);
+           tripDB.tripDao().insert(trip);
         }
     }
 
@@ -107,16 +111,12 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "local Receiver, on Receive");
             boolean hasWifi = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_WIFI(), false);
-
             if (hasWifi) {
                 // run in a different thread
                 new Thread(new Upload()).start();
             } else {
                 Log.d(TAG, "no wifi");
             }
-
-            boolean isOnline = intent.getBooleanExtra(NetworkConnectionReceiver.getEXTRA_IS_CONNECTED(), false);
-            service.SwitchingOnline(isOnline);
         }
     };
 
@@ -138,9 +138,11 @@ public class MainActivity extends AppCompatActivity {
         recordVideoButton = findViewById(R.id.recordVideoButton);
 
         this.uuid = Utilities.getUUID(this);
+        Breadcrumb.uuid = this.uuid;
         uuidTextView.setText(uuid);
 
-        db = Room.databaseBuilder(this, TripDatabase.class, "tripDatabase").build();
+        tripDB = Room.databaseBuilder(this, TripDatabase.class, "tripDatabase").build();
+        breadDB = Room.databaseBuilder(this, BreadcrumbDatabase.class, "breadDatabase").build();
 
         // weird situation, requesting is true, but has not permission (user took it off)
         boolean isRequesting = Utilities.requestingLocationUpdates(this);

@@ -5,6 +5,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.arch.persistence.room.Room;
 import android.content.Intent;
 import android.location.Location;
 import android.os.Binder;
@@ -60,6 +61,8 @@ public class GeolocationService extends Service{
     public static final String EXTRA_FROM_NOTIFICATION = "from_notification";
     private static final float MINIMUM_DISTANCE_METERS = 10;
 
+    private static BreadcrumbDatabase db;
+
     private Location lastLocation = null;
     private FusedLocationProviderClient locClient;
     private LocationCallback locCallback;
@@ -74,12 +77,28 @@ public class GeolocationService extends Service{
     private NotificationManager notificationManager;
     private Notification notification;
 
-    public boolean isOnline = true;
-    private ArrayList<Location> breadcrumbs_keep = new ArrayList<>();
+    // public boolean isOnline = true;
+    // private ArrayList<Location> breadcrumbs_keep = new ArrayList<>();
+
+    class BreadcrumbInserter implements Runnable {
+
+        Breadcrumb b;
+
+        BreadcrumbInserter(Breadcrumb breadcrumb) {
+            this.b = breadcrumb;
+        }
+
+        @Override
+        public void run() {
+            db.breadcrumbDao().insert(this.b);
+        }
+    }
 
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate");
+
+        db = Room.databaseBuilder(this, BreadcrumbDatabase.class, "breadDatabase").build();
 
         locClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -89,21 +108,11 @@ public class GeolocationService extends Service{
                 // super.onLocationResult(locationResult);
                 // Log.d(TAG, "new Location");
                 for(Location location: locationResult.getLocations()) {
-
-                    // if(lastLocation == null || lastLocation.distanceTo(location) > MINIMUM_DISTANCE_METERS) {
                     if(location != null) {
                         lastLocation = location;
                         Log.d(TAG, Utilities.formattedGeolocation(lastLocation));
-                        if (isOnline) {
-                            Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
-                            Log.d(TAG, "I'm online");
-                        } else {
-                            breadcrumbs_keep.add(lastLocation);
-                            Log.d(TAG, "I'm offline");
-                        }
+                        new Thread(new BreadcrumbInserter(new Breadcrumb(lastLocation))).start();
                     }
-                    // return;
-                    // }
 
                 }
             }
@@ -147,10 +156,8 @@ public class GeolocationService extends Service{
     @Override
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "onBind");
-
         // stops being a foreground service because it's bound to the activity
         stopForeground(true);
-
         return binder;
     }
 
@@ -190,11 +197,7 @@ public class GeolocationService extends Service{
                                 // Location location = task.getResult();
                                 lastLocation = task.getResult();
                                 Log.d(TAG, "got location " + Utilities.formattedGeolocation(lastLocation));
-                                if (isOnline) {
-                                    Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), lastLocation);
-                                } else {
-                                    breadcrumbs_keep.add(lastLocation);
-                                }
+                                new Thread(new BreadcrumbInserter(new Breadcrumb(lastLocation))).start();
                             } else {
                                 Log.d(TAG, "location was null, failed to get last location");
                             }
@@ -234,11 +237,7 @@ public class GeolocationService extends Service{
     public void requestLocationUpdates(){
         Log.d(TAG, "requesting location updates");
         Utilities.setRequestingLocationUpdates(this, true);
-//        if(Build.VERSION.SDK_INT == Build.VERSION_CODES.O) {  // SDK branch should be here, but not work...
-//            startForegroundService(new Intent(this, GeolocationService.class));
-//        } else {
             startService(new Intent(this, GeolocationService.class));  // TODO: Check this or getApplicationContext()
-//        }
         try{
             locClient.requestLocationUpdates(locRequest, locCallback, Looper.myLooper());
         } catch (SecurityException e){
@@ -261,7 +260,6 @@ public class GeolocationService extends Service{
     }
 
     public Notification getNotification() {
-
         Intent intent = new Intent(this, GeolocationService.class);
 
         String text;
@@ -303,19 +301,4 @@ public class GeolocationService extends Service{
         }
 
     }
-
-    public void SwitchingOnline(boolean online){
-        this.isOnline = online;
-        if(this.isOnline) {
-            for (int i=0; i<breadcrumbs_keep.size(); i++) {
-                Location tmpLocation = breadcrumbs_keep.get(i);
-                Log.d(TAG, "got location during offline " + Utilities.formattedGeolocation(tmpLocation));
-                Firebase.addBreadcrumb(Utilities.getUUID(GeolocationService.this), tmpLocation);
-            }
-            breadcrumbs_keep.clear();
-        } else {
-            Log.d(TAG, "goes to offline");
-        }
-    }
-
 }

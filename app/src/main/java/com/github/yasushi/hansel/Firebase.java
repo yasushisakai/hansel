@@ -30,6 +30,10 @@ public class Firebase {
         ref.child("breadcrumbs").child(uuid).child(location.getTime() + "").setValue(new SimpleLocation(location));
     }
 
+    public static void addBreadcrumb (String uuid, Long timestamp, double altitude, double longitude, double latitude){
+        ref.child("breadcrumbs").child(uuid).child(timestamp + "").setValue(new SimpleLocation(altitude, longitude, latitude));
+    }
+
     public static String getNewTripId (String uuid) {
         DatabaseReference r = ref.child("trips").child(uuid).push();
         return r.getKey();
@@ -57,6 +61,7 @@ public class Firebase {
     }
 
     // this uploads the video, and in success, adds a record to firebase
+    // currently turned off
     public static UploadTask uploadClip(String name, Uri uri){
        StorageReference r = storageRef.child("clips/" + name);
        UploadTask task = r.putFile(uri);
@@ -79,6 +84,12 @@ public class Firebase {
         public double altitude;
 
         public SimpleLocation() {
+        }
+
+        public SimpleLocation(double altitude, double longitude, double latitude){
+            this.altitude = altitude;
+            this.longitude = longitude;
+            this.latitude = latitude;
         }
 
         public SimpleLocation(Location location) {
