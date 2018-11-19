@@ -29,7 +29,7 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import io.reactivex.internal.operators.flowable.FlowableAny;
 
@@ -82,15 +82,25 @@ public class GeolocationService extends Service{
 
     class BreadcrumbInserter implements Runnable {
 
-        Breadcrumb b;
+        private Breadcrumb breadCrumb;
 
-        BreadcrumbInserter(Breadcrumb breadcrumb) {
-            this.b = breadcrumb;
+        BreadcrumbInserter(Breadcrumb b) {
+            breadCrumb = b;
         }
 
         @Override
         public void run() {
-            db.breadcrumbDao().insert(this.b);
+            Log.d(TAG, "BreadInserter:::" + breadCrumb.getTs());
+            List<Breadcrumb> l = db.breadcrumbDao().selectAll();
+            if(l.size() != 0) {
+                Log.d(TAG, "BreadInserter:LAST::" + l.get(l.size() - 1).getTs());
+                if(l.get(l.size() - 1).getTs() == breadCrumb.getTs()) {
+                    Log.d(TAG, "BreadInserter::: Same TS Key is already exist. Skip insertion.");
+                    return;
+                }
+            }
+
+            db.breadcrumbDao().insert(breadCrumb);
         }
     }
 
