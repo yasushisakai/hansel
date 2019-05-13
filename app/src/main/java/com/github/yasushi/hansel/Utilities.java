@@ -22,16 +22,29 @@ public class Utilities {
 
     static final String KEY_UUID = "UUID";
     static final String KEY_REQUESTING_LOCATION_UPDATES = "requesting_location_updates";
+    static final String KEY_REQUESTING_ACTIVITY_UPDATES = 'requesting_activity_updates';
 
     static boolean requestingLocationUpdates(Context context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
                 .getBoolean(KEY_REQUESTING_LOCATION_UPDATES, false);
     }
 
+    static boolean requestingActivityUpdates(Context context) {
+        return PreferenceManager.getDefaultSharedPreferences(context)
+                .getBoolean(KEY_REQUESTING_ACTIVITY_UPDATES, false);
+    }
+
     static void setRequestingLocationUpdates(Context context, boolean requestingLocationUpdates) {
         PreferenceManager.getDefaultSharedPreferences(context)
                 .edit()
                 .putBoolean(KEY_REQUESTING_LOCATION_UPDATES, requestingLocationUpdates)
+                .apply();
+    }
+
+    static void setRequestingActivityUpdates(Context context, boolean requestingActivityUpdates) {
+        PreferenceManager.getDefaultSharedPreferences(context)
+                .edit()
+                .putBoolean(KEY_REQUESTING_LOCATION_UPDATES, requestingActivityUpdates)
                 .apply();
     }
 
@@ -94,6 +107,5 @@ public class Utilities {
 
         return new ActivityTransitionRequest(transactions);
     }
-
 
 }

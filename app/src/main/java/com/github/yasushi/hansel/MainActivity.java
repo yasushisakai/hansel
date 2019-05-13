@@ -43,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
 
     private GeolocationReceiver geolocationReceiver;
     private NetworkConnectionReceiver networkReceiver;
+    private ActivityTransitionReceiver activityTransitionReceiver;
 
     private TextView uuidTextView;
     private Button recordingButton;
@@ -118,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
 
         geolocationReceiver = new GeolocationReceiver();
         networkReceiver = new NetworkConnectionReceiver();
+        activityTransitionReceiver = new ActivityTransitionReceiver();
         setContentView(R.layout.activity_main);
 
         recordingButton = findViewById(R.id.startPauseButton);
@@ -191,6 +193,8 @@ public class MainActivity extends AppCompatActivity {
         changeButtonState(isRequesting);
 
         LocalBroadcastManager.getInstance(this).registerReceiver(geolocationReceiver,
+                new IntentFilter(GeolocationService.ACTION_BROADCAST));
+        LocalBroadcastManager.getInstance(this).registerReceiver(activityTransitionReceiver,
                 new IntentFilter(GeolocationService.ACTION_BROADCAST));
         registerReceiver(networkReceiver, new IntentFilter("android.net.conn.CONNECTIVITY_CHANGE"));
         LocalBroadcastManager.getInstance(this).registerReceiver(localReceiver,

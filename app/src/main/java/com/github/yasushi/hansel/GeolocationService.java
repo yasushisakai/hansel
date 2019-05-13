@@ -20,6 +20,8 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.util.SimpleArrayMap;
 import android.util.Log;
 
+import com.google.android.gms.location.ActivityTransition;
+import com.google.android.gms.location.DetectedActivity;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -29,6 +31,7 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import io.reactivex.internal.operators.flowable.FlowableAny;
 
@@ -36,8 +39,6 @@ public class GeolocationService extends Service{
     private static final String TAG = GeolocationService.class.getSimpleName();
     private static final String PACKAGE_NAME = "com.github.yasushi.hansel";
 
-    // private static final long LOCATION_INTERVAL = 60 * 60 * 1000;
-    private static final long LOCATION_INTERVAL = 60 * 1000; // only responsible for every 30 min
 
     public enum LOCATION_INTERVALS {
         SLOW (60000), FAST(10000), FASTEST(5000);
@@ -54,11 +55,10 @@ public class GeolocationService extends Service{
     }
 
     // private static final long LOCATION_FASTEST_INTERVAL = 30 * 60 * 1000;
-    private static final long LOCATION_FASTEST_INTERVAL = 30 * 1000; // fastest 30 sec
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
+    public static final String ACTION_BROADCAST_ACTIVITY = PACKAGE_NAME + ".broadcast";
     public static final String EXTRA_LOCATION = "location";
     public static final String EXTRA_FROM_NOTIFICATION = "from_notification";
-    private static final float MINIMUM_DISTANCE_METERS = 10;
 
     private Location lastLocation = null;
     private FusedLocationProviderClient locClient;
@@ -111,6 +111,7 @@ public class GeolocationService extends Service{
 
         createLocationRequest();
         getLastLocation();
+
 
         // this is the thread for this service
         HandlerThread handlerThread = new HandlerThread(TAG);
@@ -180,6 +181,7 @@ public class GeolocationService extends Service{
         super.onDestroy();
     }
 
+
     public void getLastLocation() {
         try {
             locClient.getLastLocation()
@@ -245,6 +247,12 @@ public class GeolocationService extends Service{
             Utilities.setRequestingLocationUpdates(this, false);
             Log.e(TAG, "Location permission lost." + e);
         }
+    }
+
+    public void requestActivityUpdates() {
+        Log.d(TAG, "requesting activity updates");
+
+
     }
 
     public void removeLocationUpdates(){
